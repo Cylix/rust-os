@@ -1,0 +1,11 @@
+[build]
+target = "x86_64-rust-os.json"
+
+[unstable]
+# build core library for the rust-os target on-demand
+# refer to https://os.phil-opp.com/minimal-rust-kernel/#the-build-std-option
+build-std = ["core", "compiler_builtins"]
+
+# replace c's stdlib mem* functions by enabling mem* functions from the compiler_builtins crate
+# refer to https://os.phil-opp.com/minimal-rust-kernel/#memory-related-intrinsics
+build-std-features = ["compiler-builtins-mem"]

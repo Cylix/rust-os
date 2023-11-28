@@ -14,5 +14,5 @@ Cargo.lock
 *.pdb
 
 # Misc.
+build/
 opt/
-tmp/
