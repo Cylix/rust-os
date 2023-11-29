@@ -34,7 +34,7 @@ SECTIONS {
     {
         *(COMMON)
         *(.bss)
-        /* *(.bootstrap_stack) */
+        *(.stack)
     }
 
     /* create variable whose address refers to the end of kernel address space */
