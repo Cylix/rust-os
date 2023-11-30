@@ -27,11 +27,11 @@ ISO    := $(BUILD_DIR)/rust-os-$(ARCH).iso
 all: $(KERNEL)
 
 $(KERNEL): $(LD) $(AS) $(BOOTLOADER_OBJS) $(BOOTLOADER_LINK)
-	$(LD) -T $(BOOTLOADER_LINK) -o $(KERNEL) $(BOOTLOADER_OBJS)
+	$(LD) -m elf_i386 -T $(BOOTLOADER_LINK) -o $(KERNEL) $(BOOTLOADER_OBJS)
 
 $(BUILD_DIR)/bootloader/arch/$(ARCH)/%.o: src/bootloader/arch/$(ARCH)/%.s
 	mkdir -p $(shell dirname $@)
-	$(AS) $< -o $@
+	$(AS) --32 $< -o $@
 
 # Install Tools
 binutils:
@@ -53,7 +53,7 @@ $(GRUB):
 
 # Build & Run ISO
 run: $(QEMU) $(ISO)
-	$(QEMU) -cdrom $(ISO)
+	$(QEMU) -cdrom $(ISO) -monitor stdio
 
 iso: $(ISO)
 
