@@ -1,3 +1,6 @@
+    /* system boots in 32bits protected mode: instruct as to compile the code with that assumption */
+    .code32
+
     /* kernel entrypoint, defined in .text section below */
     .global _start
 
@@ -157,8 +160,8 @@ no_long_mode:
  * each line is 80 characters, each represented with 2 bytes: 3rd line is at byte 320 (0x140)
  */
 ok:
-    mov $0x074f, 0xb8140 /* 'O' */
-    mov $0x074b, 0xb8142 /* 'K' */
+    movw $0x074f, 0xb8140 /* 'O' */
+    movw $0x074b, 0xb8142 /* 'K' */
     hlt
 
 /* print `ERR: ` and the given error code to screen, and hang
@@ -168,11 +171,11 @@ ok:
  * each line is 80 characters, each represented with 2 bytes: 3rd line is at byte 320 (0x140)
  */
 error:
-    mov $0x4f45, 0xb8140 /* 'E' */
-    mov $0x4f52, 0xb8142 /* 'R' */
-    mov $0x4f52, 0xb8144 /* 'R' */
-    mov $0x4f3a, 0xb8146 /* ':' */
-    mov $0x4f20, 0xb8148 /* ' ' */
-    mov %al, 0xb814a /* error code */
-    mov $0x4f, 0xb814b /* red color for error code */
+    movw $0x4f45, 0xb8140 /* 'E' */
+    movw $0x4f52, 0xb8142 /* 'R' */
+    movw $0x4f52, 0xb8144 /* 'R' */
+    movw $0x4f3a, 0xb8146 /* ':' */
+    movw $0x4f20, 0xb8148 /* ' ' */
+    movb %al, 0xb814a /* error code */
+    movb $0x4f, 0xb814b /* red color for error code */
     hlt

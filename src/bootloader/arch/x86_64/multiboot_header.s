@@ -1,4 +1,7 @@
-/* specs: https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Header-layout */
+    /* system boots in 32bits protected mode: instruct as to compile the code with that assumption */
+    .code32
+
+    /* specs: https://www.gnu.org/software/grub/manual/multiboot2/multiboot.html#Header-layout */
     .section .multiboot_header
 header_start:
     /* magic number (multiboot 2) */
