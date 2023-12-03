@@ -5,7 +5,34 @@
     .global _start
 
     /*
-     * reserve a stack for the initial thread
+     * reserve initial page tables space for identity mapping
+     *   - 'a': section is allocatable
+     *   - 'w': section is writable
+     *   - @nobits: section does not contain data (only occupies space)
+     *
+     * refer to:
+     *   - https://os.phil-opp.com/entering-longmode/#set-up-identity-paging
+     *   - https://en.wikipedia.org/wiki/X86-64#Virtual_address_space_details
+     */
+    .section .page_tables, "aw", @nobits
+    /* Page-Map Level-4 Table (PML4-table): one 4KiB table containing 512 8-bytes entries, each pointing to a PDP-table */
+pml4_table:
+    .skip 4096 /* 4 KiB */
+
+    /* Page-Directory Pointer Table (PDP-table): one 4KiB table containing 512 8-bytes entries, each pointing to a PD-table */
+pdp_table:
+    .skip 4096 /* 4 KiB */
+
+    /* Page-Directory Table (PD-table): one 4KiB table containing 512 8-bytes entries, each pointing to a P-table */
+pd_table:
+    .skip 4096 /* 4 KiB */
+
+    /* Page Table (P-table): one 4KiB table containing 512 8-bytes entries, each pointing to a 4KiB physical memory page */
+p_table:
+    .skip 4096 /* 4 KiB */
+
+    /*
+     * reserve initial stack space
      *   - 'a': section is allocatable
      *   - 'w': section is writable
      *   - @nobits: section does not contain data (only occupies space)
@@ -15,7 +42,7 @@
      */
     .section .stack, "aw", @nobits
 stack_bottom:
-    .skip 16384 # 16 KiB
+    .skip 16384 /* 16 KiB */
 stack_top:
 
     .section .text
@@ -27,6 +54,9 @@ _start:
     call check_multiboot
     call check_cpuid
     call check_long_mode
+
+    /* initial page table setup */
+    call identity_mapping
 
     /* OK */
     jmp ok
@@ -67,8 +97,7 @@ check_cpuid:
     mov %ecx, %eax
 
     /* flip the CPUID bit (21st bit) */
-    mov $1 << 21, %ebx
-    xor %eax, %ebx
+    xor $1 << 21, %eax
 
     /* save updated FLAGS:
      *   1. copy FLAGS from ax into the stack (push)
@@ -144,14 +173,56 @@ check_long_mode:
      */
     mov $0x80000001, %eax
     cpuid
-    mov $1 << 29, %ebx
-    test %edx, %ebx
+    test $1 << 29, %edx
     jz no_long_mode
     ret
 
 no_long_mode:
     mov $'2', %al
     jmp error
+
+/*
+ * set up initial page tables, with identity mapping of the first 2MiB of memory:
+ *   - one 4KiB P-Table (starting at 'p_table'), with 512 8-bytes entries, each pointing to the first 512 4KiB physical memory pages
+ *   - one 4KiB PD-Table (starting at 'pd_table'), with a single entry pointing to the P-Table ('p_table')
+ *   - one 4KiB PDP-Table (starting at 'pdp_table'), with a single entry pointing to the PD-Table ('pd_table')
+ *   - one 4KiB PML4-Table (starting at 'pml4_table'), with a single entry pointing to the PDP-Table ('pdp_table')
+ *
+ * 1 PML4-table entry * 1 PDP-table entry * 1 PD-table entry * 512 P-table entries * 4096-bytes memory page entries = 2MiB
+ */
+identity_mapping:
+    /* map first PML4-Table entry to PDP-Table table */
+    mov pdp_table, %eax
+    or $0b11, %eax /* set bit 0 (page present) and bit 1 (page writable) */
+    mov %eax, [pml4_table]
+
+    /* map first PDP-Table entry to PD-Table table */
+    mov pd_table, %eax
+    or $0b11, %eax /* set bit 0 (page present) and bit 1 (page writable) */
+    mov %eax, [pdp_table]
+
+    /* map first PD-Table entry to P-Table table */
+    mov p_table, %eax
+    or $0b11, %eax /* set bit 0 (page present) and bit 1 (page writable) */
+    mov %eax, [pd_table]
+
+    /* map each P-Table entry to identity map the first 2MiB of memory */
+    mov p_table, %ebx /* p_table address */
+    mov $0, %ecx /* counter variable */
+
+map_p_table:
+    /* map ecx-th P-Table entry to a memory starting at 4KiB*ecx */
+    mov $0x1000, %eax /* 4KiB */
+    mul %ecx
+    or $0b11, %eax /* set bit 0 (page present) and bit 1 (page writable) */
+    mov %eax, (%ebx, %ecx, 8) /* p_table[entry_index * 8] (with p_table == ebx, entry_index == ecx, and 8 being the size of each p_table entry) */
+
+    /* keep looping to populate all 512 P-Table entries */
+    inc %ecx
+    cmp $512, %ecx
+    jne map_p_table
+
+    ret
 
 /*
  * print `OK` to screen

@@ -34,6 +34,7 @@ SECTIONS {
     {
         *(COMMON)
         *(.bss)
+        *(.page_tables)
         *(.stack)
     }
 
