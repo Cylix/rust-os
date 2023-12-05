@@ -70,10 +70,10 @@ _start:
  */
 check_multiboot:
     cmp $0x36d76289, %eax
-    jne no_multiboot
+    jne .no_multiboot
     ret
 
-no_multiboot:
+.no_multiboot:
     mov $'0', %al
     jmp error
 
@@ -164,7 +164,7 @@ check_long_mode:
     mov $0x80000000, %eax
     cpuid
     cmp $0x80000001, %eax
-    jb no_long_mode
+    jb .no_long_mode
 
     /*
      * we can now request the extended processor info and check for long-mode:
@@ -175,10 +175,10 @@ check_long_mode:
     mov $0x80000001, %eax
     cpuid
     test $1 << 29, %edx
-    jz no_long_mode
+    jz .no_long_mode
     ret
 
-no_long_mode:
+.no_long_mode:
     mov $'2', %al
     jmp error
 
@@ -211,7 +211,7 @@ identity_mapping:
     mov $p_table, %ebx /* p_table address */
     mov $0, %ecx /* counter variable */
 
-map_p_table:
+.map_p_table:
     /* map ecx-th P-Table entry to a memory starting at 4KiB*ecx */
     mov $0x1000, %eax /* 4KiB */
     mul %ecx
@@ -221,7 +221,7 @@ map_p_table:
     /* keep looping to populate all 512 P-Table entries */
     inc %ecx
     cmp $512, %ecx
-    jne map_p_table
+    jne .map_p_table
 
     ret
 
