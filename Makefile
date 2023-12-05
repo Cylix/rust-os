@@ -53,7 +53,7 @@ $(GRUB):
 
 # Build & Run ISO
 run: $(QEMU) $(ISO)
-	$(QEMU) -cdrom $(ISO) -monitor stdio
+	$(QEMU) -cdrom $(ISO) -monitor stdio -no-reboot
 
 iso: $(ISO)
 

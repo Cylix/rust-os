@@ -55,8 +55,9 @@ _start:
     call check_cpuid
     call check_long_mode
 
-    /* initial page table setup */
+    /* enable paging with initial identity mapping */
     call identity_mapping
+    call enable_paging
 
     /* OK */
     jmp ok
@@ -192,22 +193,22 @@ no_long_mode:
  */
 identity_mapping:
     /* map first PML4-Table entry to PDP-Table table */
-    mov pdp_table, %eax
+    mov $pdp_table, %eax
     or $0b11, %eax /* set bit 0 (page present) and bit 1 (page writable) */
     mov %eax, [pml4_table]
 
     /* map first PDP-Table entry to PD-Table table */
-    mov pd_table, %eax
+    mov $pd_table, %eax
     or $0b11, %eax /* set bit 0 (page present) and bit 1 (page writable) */
     mov %eax, [pdp_table]
 
     /* map first PD-Table entry to P-Table table */
-    mov p_table, %eax
+    mov $p_table, %eax
     or $0b11, %eax /* set bit 0 (page present) and bit 1 (page writable) */
     mov %eax, [pd_table]
 
     /* map each P-Table entry to identity map the first 2MiB of memory */
-    mov p_table, %ebx /* p_table address */
+    mov $p_table, %ebx /* p_table address */
     mov $0, %ecx /* counter variable */
 
 map_p_table:
@@ -221,6 +222,49 @@ map_p_table:
     inc %ecx
     cmp $512, %ecx
     jne map_p_table
+
+    ret
+
+/*
+ * enable paging (virtual addressing)
+ *   - paging will be configured with the 4-layer long-mode hierarchy
+ *   - processor will remain in 32-bits compatibility mode: additional GDT configuration is needed to switch to 64-bits mode
+ *
+ * refer to:
+ *   - https://os.phil-opp.com/entering-longmode/#set-up-identity-paging
+ *   - https://en.wikipedia.org/wiki/Control_register
+ *   - https://en.wikipedia.org/wiki/Physical_Address_Extension
+ */
+enable_paging:
+    /*
+     * in cr3 register, set page directory base register (PDBR) to PML4-Table location
+     * processor checks cr3 register to locate the root page table and perform addresses translations
+     */
+    mov $pml4_table, %eax
+    mov %eax, %cr3
+
+    /*
+     * in cr4 register, set the Physical Address Extension (PAE) flag, effectively enabling:
+     *   - one extra layer of page table hierarchy (pdp_table instead of pd_table as the root page table)
+     *   - 64-bits table entries (instead of 32-bits)
+     */
+    mov %cr4, %eax
+    or $1 << 5, %eax /* bit 5, Physical Address Extension ('PAE') */
+    mov %eax, %cr4
+
+    /*
+     * in the Extended Feature Enable Register (EFER) Model Specific Register (MSR), set the long-mode flag
+     * effectively enabling 4-layer page table hierarchy (pml4_table)
+     */
+    mov $0xC0000080, %ecx /* EFER MSR ID is 0xC0000080 */
+    rdmsr
+    or $1 << 8, %eax /* bit 8, Long Mode Enable ('LME') */
+    wrmsr
+
+    /* in cr0 register, enable paging */
+    mov %cr0, %eax
+    or $1 << 31, %eax /* bit 31, Paging ('PG'): if 1, enable paging and use the CR3 register */
+    mov %eax, %cr0
 
     ret
 
