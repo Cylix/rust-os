@@ -1,7 +1,7 @@
-    /* system boots in 32bits protected mode: instruct as to compile the code with that assumption */
+    /* system boots in 32bits protected mode: instruct gnu-as to compile the code with that assumption */
     .code32
 
-    /* kernel entrypoint, defined in .text section below */
+    /* kernel 32-bits entrypoint, defined in .text section below */
     .global _start
 
     /*
@@ -45,6 +45,89 @@ stack_bottom:
     .skip 16384 /* 16 KiB */
 stack_top:
 
+    /*
+     * global descriptor table (gdt) is used to define:
+     *   - memory segments
+     *   - task state segments (tss)
+     *   - local descriptor tables (ldt)
+     *   - call gates
+     *
+     * we're using pagination rather than segmentation (enforced in long-mode anyway)
+     * thus, global descriptor table is of limited use, but is still required on x86
+     *
+     * the section below defines a gdt with the following entries:
+     *   - null descriptor (required as the first gdt entry)
+     *   - kernel mode code segment descriptor (required)
+     *   - kernel mode data segment descriptor (recommended)
+     *   - user mode code segment descriptor (recommended)
+     *   - user mode data segment descriptor (recommended)
+     *   - system task state segment descriptor (recommended)
+     *
+     * refer to:
+     *   - https://os.phil-opp.com/entering-longmode/#the-global-descriptor-table
+     *   - https://wiki.osdev.org/Setting_Up_Long_Mode#Entering_the_64-bit_Submode
+     *   - https://wiki.osdev.org/GDT_Tutorial
+     *   - https://wiki.osdev.org/Global_Descriptor_Table
+     *   - https://en.wikipedia.org/wiki/Global_Descriptor_Table
+     *   - https://en.wikipedia.org/wiki/Segment_descriptor
+     *   - https://wiki.osdev.org/Task_State_Segment
+     *   - https://en.wikipedia.org/wiki/Task_state_segment
+     */
+    .section .global_descriptor_table
+gdt64:
+gdt64_null_descriptor:
+gdt64_null_descriptor_offset = gdt64_null_descriptor - gdt64
+    .quad 0
+
+gdt64_kernel_mode_code_segment_descriptor:
+gdt64_kernel_mode_code_segment_descriptor_offset = gdt64_kernel_mode_code_segment_descriptor - gdt64
+    .word 0xFFFF /* limit (ignored in 64 bits) */
+    .word 0 /* base (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+    .byte 0x9A /* access byte: present, ring-level 0, code segment (not system), read/write/exec */
+    .byte 0xAF /* flags (4KiB-pages, 64bits), and limit (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+
+gdt64_kernel_mode_data_segment_descriptor:
+gdt64_kernel_mode_data_segment_descriptor_offset = gdt64_kernel_mode_data_segment_descriptor - gdt64
+    .word 0xFFFF /* limit (ignored in 64 bits) */
+    .word 0 /* base (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+    .byte 0x92 /* access byte: present, ring-level 0, code segment (not system), read/write */
+    .byte 0xCF /* flags (4KiB-pages, 32bits), and limit (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+
+gdt64_user_mode_code_segment_descriptor:
+gdt64_user_mode_code_segment_descriptor_offset = gdt64_user_mode_code_segment_descriptor - gdt64
+    .word 0xFFFF /* limit (ignored in 64 bits) */
+    .word 0 /* base (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+    .byte 0xFA /* access byte: present, ring-level 3, code segment (not system), read/write/exec */
+    .byte 0xAF /* flags (4KiB-pages, 64bits), and limit (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+
+gdt64_user_mode_data_segment_descriptor:
+gdt64_user_mode_data_segment_descriptor_offset = gdt64_user_mode_data_segment_descriptor - gdt64
+    .word 0xFFFF /* limit (ignored in 64 bits) */
+    .word 0 /* base (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+    .byte 0xF2 /* access byte: present, ring-level 3, code segment (not system), read/write */
+    .byte 0xCF /* flags (4KiB-pages, 32bits), and limit (ignored in 64 bits) */
+    .byte 0 /* base (ignored in 64 bits) */
+
+gdt64_system_task_state_segment_descriptor:
+gdt64_system_task_state_segment_descriptor_offset = gdt64_system_task_state_segment_descriptor - gdt64
+    .word 0x68 /* limit (tss size, 0x68: https://wiki.osdev.org/Task_State_Segment) */
+    .word 0 /* base (tss address, unset) */
+    .byte 0 /* base (tss address, unset) */
+    .byte 0x89 /* access byte: present, ring-level 0, system segment, tss-type */
+    .byte 0 /* flags */
+    .byte 0 /* base (tss address, unset) */
+
+gdt64_pointer:
+    .word . - gdt64 - 1 /* gdt size */
+    .quad gdt64 /* gdt pointer */
+
     .section .text
 _start:
     /* initialize stack pointer */
@@ -59,8 +142,11 @@ _start:
     call identity_mapping
     call enable_paging
 
-    /* OK */
-    jmp ok
+    /*
+     * enter 64-bits mode
+     * this should jump to _start_long_mode
+     */
+    call enable_64_bits_mode
 
 /*
  * validate kernel was started by a multiboot-compliant bootloader, allowing us to use multiboot features
@@ -169,7 +255,7 @@ check_long_mode:
     /*
      * we can now request the extended processor info and check for long-mode:
      *   1. set cpuid parameter to 0x80000001 in eax
-     *   2. call cpuid:  long-mode information will be set in the 29th lower bit of edx
+     *   2. call cpuid: long-mode information will be set in the 29th lower bit of edx
      *   3. ensure long-mode is enabled (29th lower bit of edx is non-zero)
      */
     mov $0x80000001, %eax
@@ -267,6 +353,29 @@ enable_paging:
     mov %eax, %cr0
 
     ret
+
+/*
+ * enter 64-bits mode
+ *   - load a new 64-bits Global Descriptor Table (GDT)
+ *   - load a new 64-bits kernel code segment
+ *   - jump to _start_long_mode
+ *
+ *  processor is still in 32-bits compatibility mode at the moment (64-bits paging but 32-bits instructions)
+ *  this function will complete the long-mode configuration to enable 64-bits instructions
+ */
+enable_64_bits_mode:
+    /*
+     * load a new 64-bits GDT
+     * refer to the `.global_descriptor_table` section comments for more details on why it is needed
+     */
+    lgdt [gdt64_pointer]
+
+    /*
+     * enter 64-bits mode:
+     *   - select the kernel code segment from the 64-bits gdt
+     *   - jump to the 64-bits _start_long_mode function
+     */
+    jmp $gdt64_kernel_mode_code_segment_descriptor_offset, $_start_long_mode
 
 /*
  * print `OK` to screen
