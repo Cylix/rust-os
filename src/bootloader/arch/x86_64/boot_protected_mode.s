@@ -4,6 +4,14 @@
     /* kernel 32-bits entrypoint, defined in .text section below */
     .global _start
 
+    /* gdt offsets */
+    .global gdt64_null_descriptor_offset
+    .global gdt64_kernel_mode_code_segment_descriptor_offset
+    .global gdt64_kernel_mode_data_segment_descriptor_offset
+    .global gdt64_user_mode_code_segment_descriptor_offset
+    .global gdt64_user_mode_data_segment_descriptor_offset
+    .global gdt64_system_task_state_segment_descriptor_offset
+
     /*
      * reserve initial page tables space for identity mapping
      *   - 'a': section is allocatable
@@ -73,7 +81,7 @@ stack_top:
      *   - https://wiki.osdev.org/Task_State_Segment
      *   - https://en.wikipedia.org/wiki/Task_state_segment
      */
-    .section .global_descriptor_table
+    .section .rodata
 gdt64:
 gdt64_null_descriptor:
 gdt64_null_descriptor_offset = gdt64_null_descriptor - gdt64
@@ -366,7 +374,7 @@ enable_paging:
 enable_64_bits_mode:
     /*
      * load a new 64-bits GDT
-     * refer to the `.global_descriptor_table` section comments for more details on why it is needed
+     * refer to the gdt64 `.rodata` section comments for more details on why it is needed
      */
     lgdt [gdt64_pointer]
 
