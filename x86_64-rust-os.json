@@ -1,5 +1,4 @@
 {
-    "//": "replicate x86_64-unknown-linux-gnu, but with OS set to none",
     "llvm-target": "x86_64-unknown-none",
     "data-layout": "e-m:e-i64:64-f80:128-n8:16:32:64-S128",
     "arch": "x86_64",
@@ -8,19 +7,9 @@
     "target-c-int-width": "32",
     "os": "none",
     "executables": true,
-
-    "//": "use lld cross-platform linker",
     "linker-flavor": "ld.lld",
     "linker": "rust-lld",
-
-    "//": "disable stack unwinding (not supported with `no_std`)",
     "panic-strategy": "abort",
-
-    "//": "disable redzone stack pointer optimization to prevent stack corruption",
     "disable-redzone": true,
-
-    "//": "disable SIMD for better performance during interrupts, and use software-emulated floats since it requires SIMD registers otherwise",
-    "features": "-mmx,-sse,+soft-float",
-
-    "//": "refer to https://os.phil-opp.com/minimal-rust-kernel/#target-specification"
+    "features": "-mmx,-sse,+soft-float"
 }

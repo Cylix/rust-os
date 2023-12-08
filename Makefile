@@ -20,8 +20,8 @@ BOOTLOADER_GRUB := src/bootloader/arch/$(ARCH)/grub.cfg
 BOOTLOADER_LINK := src/bootloader/arch/$(ARCH)/linker.ld
 
 # Rust OS
-RUST_SRCS := $(shell find src/ -type f -name '*.rs')
-RUST_OS    := target/$(ARCH)-rust-os/debug/librust_os.a
+RUST_SRCS := $(shell find src/ -type f -name '*.rs') .cargo/config.toml Cargo.toml x86_64-rust-os.json
+RUST_OS   := target/$(ARCH)-rust-os/debug/librust_os.a
 
 # Kernel Output
 KERNEL := $(BUILD_DIR)/rust-os-$(ARCH).bin
@@ -31,7 +31,10 @@ ISO    := $(BUILD_DIR)/rust-os-$(ARCH).iso
 all: $(KERNEL)
 
 $(KERNEL): $(LD) $(AS) $(BOOTLOADER_OBJS) $(BOOTLOADER_LINK) $(RUST_OS)
-	$(LD) -T $(BOOTLOADER_LINK) -o $(KERNEL) $(BOOTLOADER_OBJS) $(RUST_OS)
+# use `-z noexecstack` to address warnings when linking the assembly and rust sources together
+# `-z separate-code` may be needed as well but was mitigated by configuring proper section alignments in the linker.ld configuration
+# https://www.redhat.com/en/blog/linkers-warnings-about-executable-stacks-and-segments
+	$(LD) -z noexecstack -T $(BOOTLOADER_LINK) -o $(KERNEL) $(BOOTLOADER_OBJS) $(RUST_OS)
 
 $(BUILD_DIR)/bootloader/arch/$(ARCH)/%.o: src/bootloader/arch/$(ARCH)/%.s
 	mkdir -p $(shell dirname $@)
@@ -60,7 +63,7 @@ $(GRUB):
 
 # Build & Run ISO
 run: $(QEMU) $(ISO)
-	$(QEMU) -cdrom $(ISO) -monitor stdio -no-reboot -d int
+	$(QEMU) -cdrom $(ISO) -monitor stdio -no-reboot # -d int
 
 iso: $(ISO)
 
@@ -72,6 +75,6 @@ $(ISO): $(GRUB) $(KERNEL) $(BOOTLOADER_GRUB)
 
 # Misc.
 clean:
-	rm -r build
+	rm -f $(BOOTLOADER_OBJS) $(RUST_OS) $(KERNEL) $(ISO)
 
 .PHONY: all clean run iso binutils

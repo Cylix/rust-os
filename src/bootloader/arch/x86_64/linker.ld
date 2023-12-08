@@ -17,17 +17,23 @@ SECTIONS {
         *(.text)
     }
 
+    . = ALIGN(4K);
+
     /* Read-only data. */
     .rodata BLOCK(4K) : ALIGN(4K)
     {
         *(.rodata)
     }
 
+    . = ALIGN(4K);
+
     /* Read-write data (initialized) */
     .data BLOCK(4K) : ALIGN(4K)
     {
         *(.data)
     }
+
+    . = ALIGN(4K);
 
     /* Read-write data (uninitialized) and stack */
     .bss BLOCK(4K) : ALIGN(4K)
@@ -38,7 +44,5 @@ SECTIONS {
         *(.stack)
     }
 
-    /* create variable whose address refers to the end of kernel address space */
-    /* ensure that variable is 4096-bytes aligned */
-    end_kernel = ALIGN(4K);
+    . = ALIGN(4K);
 }
