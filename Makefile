@@ -19,6 +19,10 @@ BOOTLOADER_OBJS := $(patsubst src/bootloader/arch/$(ARCH)/%.s, $(BUILD_DIR)/boot
 BOOTLOADER_GRUB := src/bootloader/arch/$(ARCH)/grub.cfg
 BOOTLOADER_LINK := src/bootloader/arch/$(ARCH)/linker.ld
 
+# Rust OS
+RUST_SRCS := $(shell find src/ -type f -name '*.rs')
+RUST_OS    := target/$(ARCH)-rust-os/debug/librust_os.a
+
 # Kernel Output
 KERNEL := $(BUILD_DIR)/rust-os-$(ARCH).bin
 ISO    := $(BUILD_DIR)/rust-os-$(ARCH).iso
@@ -26,12 +30,15 @@ ISO    := $(BUILD_DIR)/rust-os-$(ARCH).iso
 # Build Kernel
 all: $(KERNEL)
 
-$(KERNEL): $(LD) $(AS) $(BOOTLOADER_OBJS) $(BOOTLOADER_LINK)
-	$(LD) -T $(BOOTLOADER_LINK) -o $(KERNEL) $(BOOTLOADER_OBJS)
+$(KERNEL): $(LD) $(AS) $(BOOTLOADER_OBJS) $(BOOTLOADER_LINK) $(RUST_OS)
+	$(LD) -T $(BOOTLOADER_LINK) -o $(KERNEL) $(BOOTLOADER_OBJS) $(RUST_OS)
 
 $(BUILD_DIR)/bootloader/arch/$(ARCH)/%.o: src/bootloader/arch/$(ARCH)/%.s
 	mkdir -p $(shell dirname $@)
 	$(AS) $< -o $@
+
+$(RUST_OS): $(RUST_SRCS)
+	cargo build
 
 # Install Tools
 binutils:

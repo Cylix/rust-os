@@ -6,10 +6,8 @@ _start_long_mode:
     /* finalize long-mode setup by cleaning up registers from outdated entries */
     call reset_registers
 
-    /* doing some 64-bits stuff: print 'okay' to the screen using %rax */
-    mov $0x2f592f412f4b2f4f, %rax
-    mov %rax, 0xb8140
-    hlt
+    /* jump to the rust kernel */
+    call rust_kernel
 
 /*
  * reset registers for long-mode

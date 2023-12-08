@@ -2,7 +2,8 @@
 Learning stuff by building a tiny OS with Rust.
 
 ### Dependencies
-Install [macFUSE](https://osxfuse.github.io/) (required for compiling grub on macOS).
+* Install [macFUSE](https://osxfuse.github.io/) (required for compiling grub on macOS).
+* Download rust standard library source code: `rustup component add rust-src`
 
 ### Usage
 ```bash
@@ -11,12 +12,6 @@ $> make
 
 # Run kernel
 $> make run
-```
-
-### Rust
-```bash
-$> rustup component add rust-src
-$> cargo build
 ```
 
 ### References
