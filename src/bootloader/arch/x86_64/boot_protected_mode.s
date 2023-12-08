@@ -81,7 +81,7 @@ stack_top:
      *   - https://wiki.osdev.org/Task_State_Segment
      *   - https://en.wikipedia.org/wiki/Task_state_segment
      */
-    .section .rodata
+    .section .global_descriptor_table, "a", @progbits
 gdt64:
 gdt64_null_descriptor:
 gdt64_null_descriptor_offset = gdt64_null_descriptor - gdt64

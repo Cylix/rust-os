@@ -13,7 +13,7 @@ fn panic(_info: &PanicInfo) -> ! {
 static HELLO: &[u8] = b"Hello World: Welcome to Rust OS!";
 
 #[no_mangle]
-pub extern fn rust_kernel() -> ! {
+pub extern fn _start_rust_kernel() -> ! {
     let vga_buffer = 0xb8000 as *mut u8;
     let visible_screen_offset = 0x140;
 

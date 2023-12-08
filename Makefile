@@ -32,7 +32,6 @@ all: $(KERNEL)
 
 $(KERNEL): $(LD) $(AS) $(BOOTLOADER_OBJS) $(BOOTLOADER_LINK) $(RUST_OS)
 # use `-z noexecstack` to address warnings when linking the assembly and rust sources together
-# `-z separate-code` may be needed as well but was mitigated by configuring proper section alignments in the linker.ld configuration
 # https://www.redhat.com/en/blog/linkers-warnings-about-executable-stacks-and-segments
 	$(LD) -z noexecstack -T $(BOOTLOADER_LINK) -o $(KERNEL) $(BOOTLOADER_OBJS) $(RUST_OS)
 

@@ -7,7 +7,7 @@ _start_long_mode:
     call reset_registers
 
     /* jump to the rust kernel */
-    call rust_kernel
+    call _start_rust_kernel
 
 /*
  * reset registers for long-mode
